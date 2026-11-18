@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Text Summarizer — Transformer</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+
+:root {
+    --bg: #080b14;
+    --bg2: #0d1220;
+    --panel: #10182b;
+    --panel2: #141d33;
+    --border: #22304a;
+    --text: #e8ecf5;
+    --muted: #7a8699;
+    --cyan: #4cf4e8;
+    --violet: #8b5cf6;
+    --cyan-dim: rgba(76,244,232,0.14);
+    --violet-dim: rgba(139,92,246,0.14);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", sans-serif;
+    overflow-x: hidden;
+}
+
+/* Background */
+
+.background {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+}
+
+.grid {
+    position: absolute;
+    inset: 0;
+    opacity: 0.25;
+    background-image:
+        linear-gradient(rgba(76,244,232,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(76,244,232,0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+}
+
+.glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+}
+
+.glow.one {
+    width: 500px;
+    height: 500px;
+    left: -200px;
+    top: -150px;
+    background: rgba(76,244,232,0.08);
+}
+
+.glow.two {
+    width: 600px;
+    height: 600px;
+    right: -250px;
+    bottom: -200px;
+    background: rgba(139,92,246,0.09);
+}
+
+/* Main */
+
+.page {
+    position: relative;
+    z-index: 2;
+    max-width: 1180px;
+    margin: auto;
+    padding: 0 30px 80px;
+}
+
+/* Navbar */
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 28px 0;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 600;
+}
+
+.brand-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 15px var(--cyan);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%,100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(0.7);
+    }
+}
+
+.badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    padding: 7px 13px;
+    border-radius: 30px;
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    border: 1px solid rgba(76,244,232,0.3);
+}
+
+/* Hero */
+
+.hero {
+    text-align: center;
+    padding: 70px 0 50px;
+}
+
+.eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+}
+
+h1 {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: clamp(45px, 8vw, 82px);
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+}
+
+h1 span {
+    background: linear-gradient(120deg, var(--cyan), var(--violet));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.subtitle {
+    max-width: 600px;
+    margin: 24px auto 0;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.7;
+}
+
+/* Console */
+
+.console {
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.45);
+}
+
+.console-header {
+    height: 55px;
+    padding: 0 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.15);
+}
+
+.window-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.window-button {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.red {
+    background: #ff6b6b;
+}
+
+.yellow {
+    background: #ffd166;
+}
+
+.green {
+    background: #06d6a0;
+}
+
+.console-title {
+    margin-left: 15px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.console-header-left {
+    display: flex;
+    align-items: center;
+}
+
+.token-count {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.token-count b {
+    color: var(--cyan);
+}
+
+/* Input / Output */
+
+.console-body {
+    display: grid;
+    grid-template-columns: 1fr 110px 1fr;
+    min-height: 390px;
+}
+
+.pane {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.pane-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 280px;
+    resize: none;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+    font-family: "Inter", sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+textarea::placeholder {
+    color: #4a5670;
+}
+
+.output {
+    flex: 1;
+    min-height: 280px;
+    color: #c9d2e3;
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.placeholder {
+    color: #4a5670;
+}
+
+.pane-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+}
+
+.stat {
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+}
+
+.copy-button,
+.clear-button {
+    padding: 7px 13px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.copy-button:hover,
+.clear-button:hover {
+    color: var(--cyan);
+    border-color: var(--cyan);
+}
+
+/* Middle */
+
+.bridge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+}
+
+.node-wrapper {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.orbit {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px dashed rgba(76,244,232,0.5);
+    animation: spin 8s linear infinite;
+}
+
+.orbit.two {
+    inset: 10px;
+    border-color: rgba(139,92,246,0.5);
+    animation-direction: reverse;
+    animation-duration: 5s;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.node {
+    position: relative;
+    z-index: 2;
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    border: 1px solid rgba(76,244,232,0.5);
+    background: radial-gradient(circle at 30% 30%, #1a2540, var(--bg2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--cyan);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    transition: 0.25s;
+}
+
+.node:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 35px rgba(76,244,232,0.25);
+}
+
+.node-wrapper.busy .orbit {
+    animation-duration: 1s;
+}
+
+.node-wrapper.busy .node {
+    box-shadow: 0 0 40px rgba(76,244,232,0.35);
+}
+
+/* Controls */
+
+.controls {
+    padding: 20px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.length-select {
+    display: flex;
+    gap: 6px;
+}
+
+.length-select button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+}
+
+.length-select button.active {
+    color: var(--cyan);
+    border-color: rgba(76,244,232,0.5);
+    background: var(--cyan-dim);
+}
+
+.controls-hint {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+/* Features */
+
+.features {
+    margin-top: 55px;
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 20px;
+}
+
+.feature {
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    background: rgba(16,24,43,0.45);
+}
+
+.feature-icon {
+    color: var(--cyan);
+    font-size: 20px;
+    margin-bottom: 15px;
+}
+
+.feature h3 {
+    font-family: "Space Grotesk", sans-serif;
+    margin-bottom: 10px;
+}
+
+.feature p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* Loading dots */
+
+.loading-dots {
+    display: none;
+    gap: 5px;
+    margin-top: 12px;
+}
+
+.loading-dots.active {
+    display: flex;
+}
+
+.loading-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    animation: loading 0.8s infinite alternate;
+}
+
+.loading-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.loading-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes loading {
+    from {
+        opacity: 0.2;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(-5px);
+    }
+}
+
+/* Responsive */
+
+@media (max-width: 860px) {
+
+    .console-body {
+        grid-template-columns: 1fr;
+    }
+
+    .bridge {
+        min-height: 120px;
+        border-left: none;
+        border-right: none;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .features {
+        grid-template-columns: 1fr;
+    }
+
+    .controls {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+
+@media (max-width: 600px) {
+
+    .page {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .hero {
+        padding-top: 40px;
+    }
+
+    .console-header {
+        padding: 0 14px;
+    }
+
+    .pane {
+        padding: 18px;
+    }
+
+    h1 {
+        font-size: 48px;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="background">
+    <div class="grid"></div>
+    <div class="glow one"></div>
+    <div class="glow two"></div>
+</div>
+
+<div class="page">
+
+    <!-- Navigation -->
+
+    <nav>
+
+        <div class="brand">
+            <div class="brand-dot"></div>
+            Text Summarizer
+        </div>
+
+        <div class="badge">
+            TRANSFORMER
+        </div>
+
+    </nav>
+
+
+    <!-- Hero -->
+
+    <section class="hero">
+
+        <div class="eyebrow">
+            AI TEXT PROCESSING
+        </div>
+
+        <h1>
+            Summarize<br>
+            <span>Anything.</span>
+        </h1>
+
+        <p class="subtitle">
+            Transform long conversations and passages into concise,
+            meaningful summaries using your trained Transformer model.
+        </p>
+
+    </section>
+
+
+    <!-- Main application -->
+
+    <section class="console">
+
+        <div class="console-header">
+
+            <div class="console-header-left">
+
+                <div class="window-buttons">
+
+                    <div class="window-button red"></div>
+                    <div class="window-button yellow"></div>
+                    <div class="window-button green"></div>
+
+                </div>
+
+                <div class="console-title">
+                    transformer_summarizer.py
+                </div>
+
+            </div>
+
+            <div class="token-count">
+                Tokens: <b id="tokenCount">0</b>
+            </div>
+
+        </div>
+
+
+        <div class="console-body">
+
+            <!-- Input -->
+
+            <div class="pane">
+
+                <div class="pane-label">
+
+                    <span>Input text</span>
+
+                    <span id="wordCount">
+                        0 words
+                    </span>
+
+                </div>
+
+
+                <textarea
+                    id="inputText"
+                    placeholder="Write or paste the dialogue, story, article, or passage you want summarized here..."
+                ></textarea>
+
+
+                <div class="pane-footer">
+
+                    <span class="stat">
+                        plain text only
+                    </span>
+
+                    <button
+                        class="clear-button"
+                        id="clearBtn"
+                    >
+                        Clear
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- Summarize button -->
+
+            <div class="bridge">
+
+                <div
+                    class="node-wrapper"
+                    id="nodeWrap"
+                >
+
+                    <div class="orbit"></div>
+                    <div class="orbit two"></div>
+
+                    <div
+                        class="node"
+                        id="summarizeNode"
+                        role="button"
+                        tabindex="0"
+                        title="Summarize"
+                    >
+                        SUMMARIZE
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Output -->
+
+            <div class="pane">
+
+                <div class="pane-label">
+
+                    <span>Summary</span>
+
+                    <span id="compressionStat">
+                        — compression
+                    </span>
+
+                </div>
+
+
+                <div
+                    class="output"
+                    id="output"
+                >
+                    <span class="placeholder">
+                        Your summary will appear here once you run the model.
+                    </span>
+                </div>
+
+
+                <div class="loading-dots" id="loadingDots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+
+
+                <div class="pane-footer">
+
+                    <span
+                        class="stat"
+                        id="outWordCount"
+                    >
+                        0 words
+                    </span>
+
+                    <button
+                        class="copy-button"
+                        id="copyBtn"
+                    >
+                        Copy summary
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Length controls -->
+
+        <div class="controls">
+
+            <div
+                class="length-select"
+                id="lengthSelect"
+            >
+
+                <button data-len="short">
+                    Short
+                </button>
+
+                <button
+                    data-len="medium"
+                    class="active"
+                >
+                    Medium
+                </button>
+
+                <button data-len="long">
+                    Long
+                </button>
+
+            </div>
+
+            <span class="controls-hint">
+                Click the node above to summarize
+            </span>
+
+        </div>
+
+    </section>
+
+
+    <!-- Features -->
+
+    <section class="features">
+
+        <div class="feature">
+
+            <div class="feature-icon">
+                ✦
+            </div>
+
+            <h3>
+                Transformer Powered
+            </h3>
+
+            <p>
+                Your trained Transformer model processes the dialogue
+                and generates an abstractive summary.
+            </p>
+
+        </div>
+
+
+        <div class="feature">
+
+            <div class="feature-icon">
+                ◉
+            </div>
+
+            <h3>
+                FastAPI Backend
+            </h3>
+
+            <p>
+                The frontend communicates directly with your Python
+                FastAPI backend through the /summarize/ endpoint.
+            </p>
+
+        </div>
+
+
+        <div class="feature">
+
+            <div class="feature-icon">
+                ↗
+            </div>
+
+            <h3>
+                Simple Interface
+            </h3>
+
+            <p>
+                Paste your dialogue, click summarize, and receive
+                the generated summary instantly.
+            </p>
+
+        </div>
+
+    </section>
+
+</div>
+
+
+<script>
+
+/* =========================================================
+   BASIC ELEMENTS
+   ========================================================= */
+
+const inputText = document.getElementById("inputText");
+const wordCount = document.getElementById("wordCount");
+const tokenCount = document.getElementById("tokenCount");
+
+const output = document.getElementById("output");
+const outWordCount = document.getElementById("outWordCount");
+const compressionStat = document.getElementById("compressionStat");
+
+const clearBtn = document.getElementById("clearBtn");
+const copyBtn = document.getElementById("copyBtn");
+
+const summarizeNode = document.getElementById("summarizeNode");
+const nodeWrap = document.getElementById("nodeWrap");
+
+const loadingDots = document.getElementById("loadingDots");
+
+let selectedLength = "medium";
+let isBusy = false;
+
+
+/* =========================================================
+   WORD COUNTER
+   ========================================================= */
+
+function countWords(text) {
+
+    const trimmed = text.trim();
+
+    if (!trimmed) {
+        return 0;
+    }
+
+    return trimmed.split(/\s+/).length;
+}
+
+
+inputText.addEventListener("input", function () {
+
+    const words = countWords(inputText.value);
+
+    wordCount.textContent =
+        words + (words === 1 ? " word" : " words");
+
+    /*
+       This is only a rough token estimate.
+       It is NOT the actual tokenizer count.
+    */
+
+    tokenCount.textContent =
+        Math.round(words * 1.3);
+
+});
+
+
+/* =========================================================
+   CLEAR BUTTON
+   ========================================================= */
+
+clearBtn.addEventListener("click", function () {
+
+    inputText.value = "";
+
+    inputText.dispatchEvent(
+        new Event("input")
+    );
+
+    resetOutput();
+
+});
+
+
+function resetOutput() {
+
+    output.innerHTML =
+        '<span class="placeholder">' +
+        'Your summary will appear here once you run the model.' +
+        '</span>';
+
+    outWordCount.textContent = "0 words";
+
+    compressionStat.textContent =
+        "— compression";
+
+}
+
+
+/* =========================================================
+   SUMMARY LENGTH BUTTONS
+   ========================================================= */
+
+const lengthButtons =
+    document.querySelectorAll(
+        "#lengthSelect button"
+    );
+
+
+lengthButtons.forEach(function(button) {
+
+    button.addEventListener("click", function() {
+
+        lengthButtons.forEach(function(btn) {
+            btn.classList.remove("active");
+        });
+
+        button.classList.add("active");
+
+        selectedLength =
+            button.dataset.len;
+
+    });
+
+});
+
+
+/* =========================================================
+   TYPE OUT EFFECT
+   ========================================================= */
+
+function typeOut(text) {
+
+    output.innerHTML = "";
+
+    let index = 0;
+
+    const cursor =
+        document.createElement("span");
+
+    cursor.style.display = "inline-block";
+    cursor.style.width = "2px";
+    cursor.style.height = "1em";
+    cursor.style.background = "var(--cyan)";
+    cursor.style.marginLeft = "3px";
+
+    function step() {
+
+        output.textContent =
+            text.slice(0, index);
+
+        output.appendChild(cursor);
+
+        index += Math.max(
+            1,
+            Math.round(text.length / 100)
+        );
+
+        if (index <= text.length) {
+
+            setTimeout(step, 12);
+
+        } else {
+
+            output.textContent = text;
+
+        }
+
+    }
+
+    step();
+
+}
+
+
+/* =========================================================
+   IMPORTANT:
+   CONNECT FRONTEND TO FASTAPI
+   ========================================================= */
+
+async function runSummary(text) {
+
+    /*
+       Your app.py contains:
+
+       @app.post("/summarize/")
+       async def summarize(dialogue_input: DialogueInput):
+
+       Therefore we send:
+
+       {
+           "dialogue": text
+       }
+    */
+
+    const response = await fetch(
+        "/summarize/",
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                dialogue: text
+            })
+        }
+    );
+
+
+    /*
+       If FastAPI returns an error such as
+       422, 500, etc., handle it here.
+    */
+
+    if (!response.ok) {
+
+        let errorMessage =
+            "Backend request failed.";
+
+        try {
+
+            const errorData =
+                await response.json();
+
+            if (errorData.detail) {
+
+                errorMessage =
+                    JSON.stringify(errorData.detail);
+
+            }
+
+        } catch (error) {
+
+            // Ignore JSON parsing error
+
+        }
+
+        throw new Error(errorMessage);
+
+    }
+
+
+    /*
+       Your app.py returns:
+
+       {
+           "summary": summary
+       }
+    */
+
+    const data =
+        await response.json();
+
+
+    if (!data.summary) {
+
+        throw new Error(
+            "FastAPI returned no summary."
+        );
+
+    }
+
+
+    return data.summary;
+
+}
+
+
+/* =========================================================
+   SUMMARIZE
+   ========================================================= */
+
+async function doSummarize() {
+
+    if (isBusy) {
+        return;
+    }
+
+
+    const text =
+        inputText.value.trim();
+
+
+    if (!text) {
+
+        inputText.focus();
+
+        output.innerHTML =
+            '<span class="placeholder">' +
+            'Please enter some dialogue first.' +
+            '</span>';
+
+        return;
+
+    }
+
+
+    isBusy = true;
+
+    nodeWrap.classList.add("busy");
+
+    loadingDots.classList.add("active");
+
+
+    output.innerHTML =
+        '<span class="placeholder">' +
+        'Running your Transformer model...' +
+        '</span>';
+
+
+    try {
+
+        /*
+           selectedLength is currently only a
+           frontend option.
+
+           Your current app.py does not accept
+           a length parameter, so we do NOT send
+           it to FastAPI.
+        */
+
+        const summary =
+            await runSummary(text);
+
+
+        const finalSummary =
+            summary ||
+            "Could not generate a summary.";
+
+
+        typeOut(finalSummary);
+
+
+        const summaryWords =
+            countWords(finalSummary);
+
+
+        outWordCount.textContent =
+            summaryWords +
+            (summaryWords === 1
+                ? " word"
+                : " words");
+
+
+        const sourceWords =
+            countWords(text);
+
+
+        if (sourceWords > 0) {
+
+            const compression =
+                Math.round(
+                    (1 - summaryWords / sourceWords) * 100
+                );
+
+            compressionStat.textContent =
+                compression + "% shorter";
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "FastAPI error:",
+            error
+        );
+
+
+        output.innerHTML =
+            '<span class="placeholder">' +
+            'Could not connect to your FastAPI backend. ' +
+            'Make sure Uvicorn is running.' +
+            '</span>';
+
+
+        outWordCount.textContent =
+            "0 words";
+
+        compressionStat.textContent =
+            "— compression";
+
+
+    } finally {
+
+        nodeWrap.classList.remove("busy");
+
+        loadingDots.classList.remove("active");
+
+        isBusy = false;
+
+    }
+
+}
+
+
+/* =========================================================
+   SUMMARIZE BUTTON CLICK
+   ========================================================= */
+
+summarizeNode.addEventListener(
+    "click",
+    doSummarize
+);
+
+
+/* =========================================================
+   KEYBOARD SUPPORT
+   ========================================================= */
+
+summarizeNode.addEventListener(
+    "keydown",
+    function(event) {
+
+        if (
+            event.key === "Enter" ||
+            event.key === " "
+        ) {
+
+            event.preventDefault();
+
+            doSummarize();
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   COPY SUMMARY
+   ========================================================= */
+
+copyBtn.addEventListener(
+    "click",
+    async function() {
+
+        const text =
+            output.textContent.trim();
+
+
+        if (!text) {
+            return;
+        }
+
+
+        try {
+
+            await navigator.clipboard.writeText(
+                text
+            );
+
+
+            const original =
+                copyBtn.textContent;
+
+
+            copyBtn.textContent =
+                "Copied!";
+
+
+            setTimeout(
+                function() {
+
+                    copyBtn.textContent =
+                        original;
+
+                },
+                1200
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Copy failed:",
+                error
+            );
+
+        }
+
+    }
+);
+
+</script>
+
+</body>
+</html>
